@@ -100,7 +100,7 @@ const BuzzwordBingo: React.FC<BuzzwordBingoProps> = ({ isOpen, onClose }) => {
       }}
     >
       <div 
-        className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative"
+        className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -142,18 +142,22 @@ const BuzzwordBingo: React.FC<BuzzwordBingoProps> = ({ isOpen, onClose }) => {
             </div>
           )}
           
-          <div className="grid grid-cols-5 gap-2 mb-4">
+          <div className="grid grid-cols-5 gap-2 mb-4 pointer-events-auto">
             {bingoCard.map((word, index) => (
               <button
                 key={index}
-                onClick={() => toggleWord(index)}
-                className={`aspect-square p-2 text-xs font-medium rounded-lg border-2 transition-all duration-200 ${
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleWord(index);
+                }}
+                className={`aspect-square p-2 text-xs font-medium rounded-lg border-2 transition-all duration-200 cursor-pointer pointer-events-auto ${
                   checkedWords[index]
                     ? 'bg-corporate-600 text-white border-corporate-600 shadow-lg transform scale-95'
                     : 'bg-white text-gray-700 border-gray-300 hover:border-corporate-400 hover:bg-corporate-50'
                 }`}
               >
-                <div className="flex items-center justify-center h-full text-center leading-tight">
+                <div className="flex items-center justify-center h-full text-center leading-tight pointer-events-none">
                   {word}
                 </div>
               </button>
