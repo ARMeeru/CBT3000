@@ -1,7 +1,7 @@
 {
   "name": "corporate-buzzword-translator-3000™",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vercel/speed-insights": "^1.2.0",
     "clsx": "^2.0.0",
     "idb": "^8.0.3",
     "lucide-react": "^0.263.1",
