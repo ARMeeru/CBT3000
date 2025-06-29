@@ -160,7 +160,7 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
     })();
   }, [inputText, direction, storage]);
 
-  // Cleanup incomplete translations on component mount
+  // Cleanup incomplete translations and handle URL parameters on component mount
   useEffect(() => {
     (async () => {
       try {
@@ -172,6 +172,21 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
         console.error('Error cleaning up incomplete data:', error);
       }
     })();
+
+    // Handle shared URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedInput = urlParams.get('input');
+    const sharedOutput = urlParams.get('output');
+    const sharedDirection = urlParams.get('direction') as TranslationDirection;
+    
+    if (sharedInput && sharedOutput && sharedDirection) {
+      setInputText(decodeURIComponent(sharedInput));
+      setOutputText(decodeURIComponent(sharedOutput));
+      setDirection(sharedDirection);
+      
+      // Clear URL parameters after loading
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []); // Run only once on mount
 
   const handleDirectionToggle = () => {
@@ -214,20 +229,32 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
   };
 
   const handleShare = async () => {
-    const shareText = `"${inputText}" translates to "${outputText}" - Corporate Buzzword Translator 3000™`;
+    const shareText = `"${inputText}" translates to "${outputText}" - Corporate Buzzword Translator 3000™\n\nTry it yourself: ${window.location.origin}`;
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Corporate Translation',
+          title: 'Corporate Buzzword Translation',
           text: shareText,
+          url: window.location.origin
         });
+        return;
       } catch (err) {
-        // Fallback to clipboard
-        copyToClipboard(shareText);
+        // User cancelled or error occurred, fall through to clipboard
+        if (err instanceof Error && err.name !== 'AbortError') {
+          console.log('Share failed, falling back to clipboard');
+        }
       }
-    } else {
-      copyToClipboard(shareText);
+    }
+    
+    // Fallback to clipboard with success feedback
+    const success = await copyToClipboard(shareText);
+    if (!success) {
+      // If clipboard fails, try creating a shareable URL
+      const encodedInput = encodeURIComponent(inputText);
+      const encodedOutput = encodeURIComponent(outputText);
+      const shareUrl = `${window.location.origin}?input=${encodedInput}&output=${encodedOutput}&direction=${direction}`;
+      await copyToClipboard(shareUrl);
     }
   };
 
@@ -401,8 +428,11 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
           )}
           
           {copied && (
-            <div className="flex items-center px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm">
-              ✓ Copied to clipboard!
+            <div className="flex items-center px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm animate-pulse">
+              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              Copied to clipboard!
             </div>
           )}
         </div>
