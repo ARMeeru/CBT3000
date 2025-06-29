@@ -7,6 +7,7 @@ import BuzzwordBingo from './components/BuzzwordBingo';
 import HistoryPanel from './components/HistoryPanel';
 import Footer from './components/Footer';
 import { Grid as Grid3X3 } from 'lucide-react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 function App() {
   const [bullshitLevel, setBullshitLevel] = useState(0);
@@ -106,6 +107,8 @@ function App() {
         isOpen={isBingoOpen} 
         onClose={() => setIsBingoOpen(false)} 
       />
+
+      <SpeedInsights />
     </div>
   );
 }
