@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { History, Heart, Trash2, Copy } from 'lucide-react';
+import { History, Heart, Trash2, Copy /*, Filter*/ } from 'lucide-react';
 import { StorageManager } from '../utils/storage';
 import { TranslationHistory } from '../types';
 import { useClipboard } from '../hooks/useClipboard';
@@ -25,6 +25,22 @@ const HistoryPanel: React.FC = () => {
     await storage.clearTranslationHistory();
     await loadData();
   };
+
+  // const cleanupIncompleteData = async () => {
+  //   try {
+  //     const result = await storage.cleanupAllIncompleteData();
+  //     await loadData();
+  //     
+  //     if (result.historyRemoved > 0 || result.favoritesRemoved > 0) {
+  //       alert(`Cleaned up ${result.historyRemoved} incomplete history items and ${result.favoritesRemoved} incomplete favorites.`);
+  //     } else {
+  //       alert('No incomplete data found to clean up.');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error cleaning up data:', error);
+  //     alert('Error occurred while cleaning up data.');
+  //   }
+  // };
 
   const removeFavorite = async (id: string) => {
     await storage.removeFavorite(id);
@@ -129,14 +145,24 @@ const HistoryPanel: React.FC = () => {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-gray-800">Translation History</h3>
-              {history.length > 0 && (
-                <button
-                  onClick={clearHistory}
-                  className="text-sm text-red-600 hover:text-red-700 transition-colors duration-200"
+              <div className="flex items-center space-x-2">
+                {/* <button
+                  onClick={cleanupIncompleteData}
+                  className="flex items-center space-x-1 text-sm text-blue-600 hover:text-blue-700 transition-colors duration-200"
+                  title="Remove incomplete sentences from history and favorites"
                 >
-                  Clear All
-                </button>
-              )}
+                  <Filter className="w-3 h-3" />
+                  <span>Cleanup</span>
+                </button> */}
+                {history.length > 0 && (
+                  <button
+                    onClick={clearHistory}
+                    className="text-sm text-red-600 hover:text-red-700 transition-colors duration-200"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
             </div>
             
             {history.length > 0 ? (
