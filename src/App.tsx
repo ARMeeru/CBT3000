@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import TranslationInterface from './components/TranslationInterface';
 import BullshitMeter from './components/BullshitMeter';
@@ -11,6 +11,27 @@ import { Grid as Grid3X3 } from 'lucide-react';
 function App() {
   const [bullshitLevel, setBullshitLevel] = useState(0);
   const [isBingoOpen, setIsBingoOpen] = useState(false);
+  
+  // Sarcastic subtexts for rotating display
+  const sarcasticSubtexts = [
+    "*Data as reliable as corporate culture promises",
+    "*Statistics verified by the same team that said 'we're all family'",
+    "*Accuracy guaranteed by our synergistic paradigm shift methodology",
+    "*These numbers are totally not made up (wink wink)"
+  ];
+  
+  const [currentSubtextIndex, setCurrentSubtextIndex] = useState(0);
+  
+  // Rotate sarcastic subtext every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSubtextIndex((prevIndex) => 
+        (prevIndex + 1) % sarcasticSubtexts.length
+      );
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [sarcasticSubtexts.length]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -70,6 +91,11 @@ function App() {
               <div className="text-xs text-gray-600">Eye Rolls Prevented</div>
             </div>
           </div>
+          
+          {/* Rotating sarcastic subtext */}
+          <p className="text-xs text-gray-400 mt-4 text-center italic transition-opacity duration-500">
+            {sarcasticSubtexts[currentSubtextIndex]}
+          </p>
         </div>
       </main>
       

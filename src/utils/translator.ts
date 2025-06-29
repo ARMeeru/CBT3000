@@ -27,58 +27,31 @@ export class TranslationEngine {
       return easterEggResult;
     }
 
-    const words = input.toLowerCase().split(/\s+/);
-    let result = input;
+    // Better sentence boundary detection
+    const sentences = this.splitIntoSentences(input);
+    let result = '';
     let translationCount = 0;
     let exactMatches = 0;
     const suggestions: TranslationSuggestion[] = [];
-
-    // Combine regular translations with easter eggs for comprehensive matching
-    const allTranslations = [...translations, ...easterEggs];
-
-    // First, try exact phrase matches
-    const sortedTranslations = [...allTranslations].sort((a, b) => {
-      const aSource = direction === 'corporate-to-honest' ? (a.corporate || '') : (a.honest || '');
-      const bSource = direction === 'corporate-to-honest' ? (b.corporate || '') : (b.honest || '');
-      return bSource.length - aSource.length;
-    });
-
-    for (const translation of sortedTranslations) {
-      const source = direction === 'corporate-to-honest' ? translation.corporate : translation.honest;
-      const target = direction === 'corporate-to-honest' ? translation.honest : translation.corporate;
+    
+    // Process each sentence separately to maintain proper punctuation and spacing
+    for (let i = 0; i < sentences.length; i++) {
+      const sentence = sentences[i];
+      const translatedSentence = this.translateSentence(sentence, direction);
+      result += translatedSentence.output;
+      translationCount += translatedSentence.translationCount;
+      exactMatches += translatedSentence.exactMatches;
       
-      if (!source || !target) continue;
-      
-      const regex = new RegExp(`\\b${this.escapeRegex(source)}\\b`, 'gi');
-      if (regex.test(result)) {
-        result = result.replace(regex, target);
-        translationCount++;
-        exactMatches++;
+      // Add space between sentences if not the last one and next sentence doesn't start with punctuation
+      if (i < sentences.length - 1 && !sentences[i + 1].match(/^[.!?,:;]/)) {
+        result += ' ';
       }
     }
-
-    // Generate suggestions for partial matches
+    
+    // Generate suggestions for the entire input
     this.generateSuggestions(input, direction, suggestions);
 
-    // If no exact matches, try fuzzy matching for individual words
-    if (translationCount === 0) {
-      words.forEach(word => {
-        const cleanWord = word.replace(/[^\w]/g, '');
-        for (const translation of allTranslations) {
-          const source = direction === 'corporate-to-honest' ? translation.corporate : translation.honest;
-          const target = direction === 'corporate-to-honest' ? translation.honest : translation.corporate;
-          
-          if (!source || !target) continue;
-          
-          if (source.toLowerCase().includes(cleanWord) && cleanWord.length > 3) {
-            const wordRegex = new RegExp(`\\b${this.escapeRegex(cleanWord)}\\b`, 'gi');
-            result = result.replace(wordRegex, target);
-            translationCount++;
-            break;
-          }
-        }
-      });
-    }
+
 
     // Calculate confidence based on translation quality
     const confidence = this.calculateConfidence(input, result, exactMatches, translationCount);
@@ -237,5 +210,112 @@ export class TranslationEngine {
 
   private escapeRegex(string: string): string {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private splitIntoSentences(text: string): string[] {
+    // Enhanced sentence boundary detection
+    // Split on sentence endings but preserve the punctuation
+    const sentences: string[] = [];
+    let current = '';
+    
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      current += char;
+      
+      // Check for sentence endings
+      if (char.match(/[.!?]/)) {
+        // Look ahead to see if this is really the end of a sentence
+        const nextChar = text[i + 1];
+        const nextNextChar = text[i + 2];
+        
+        // Don't split on abbreviations like "Mr.", "Dr.", "etc."
+        if (char === '.' && current.match(/\b(Mr|Mrs|Ms|Dr|Prof|Sr|Jr|vs|etc|i\.e|e\.g)\.$/) && nextChar !== ' ') {
+          continue;
+        }
+        
+        // Don't split on decimal numbers
+        if (char === '.' && current.match(/\d\.$/) && nextChar && nextChar.match(/\d/)) {
+          continue;
+        }
+        
+        // If next character is whitespace or end of string, this is likely a sentence boundary
+        if (!nextChar || nextChar.match(/\s/) || (nextChar.match(/[A-Z]/) && nextNextChar && nextNextChar.match(/[a-z]/))) {
+          sentences.push(current.trim());
+          current = '';
+          // Skip whitespace after sentence ending
+          while (i + 1 < text.length && text[i + 1].match(/\s/)) {
+            i++;
+          }
+        }
+      }
+    }
+    
+    // Add any remaining text
+    if (current.trim()) {
+      sentences.push(current.trim());
+    }
+    
+    return sentences.filter(s => s.length > 0);
+  }
+
+  private translateSentence(sentence: string, direction: TranslationDirection): {
+    output: string;
+    translationCount: number;
+    exactMatches: number;
+  } {
+    const words = sentence.split(/\s+/);
+    let result = sentence;
+    let translationCount = 0;
+    let exactMatches = 0;
+
+    // Combine regular translations with easter eggs for comprehensive matching
+    const allTranslations = [...translations, ...easterEggs];
+
+    // First, try exact phrase matches (longest first to avoid partial replacements)
+    const sortedTranslations = [...allTranslations].sort((a, b) => {
+      const aSource = direction === 'corporate-to-honest' ? (a.corporate || '') : (a.honest || '');
+      const bSource = direction === 'corporate-to-honest' ? (b.corporate || '') : (b.honest || '');
+      return bSource.length - aSource.length;
+    });
+
+    for (const translation of sortedTranslations) {
+      const source = direction === 'corporate-to-honest' ? translation.corporate : translation.honest;
+      const target = direction === 'corporate-to-honest' ? translation.honest : translation.corporate;
+      
+      if (!source || !target) continue;
+      
+      const regex = new RegExp(`\\b${this.escapeRegex(source)}\\b`, 'gi');
+      if (regex.test(result)) {
+        result = result.replace(regex, target);
+        translationCount++;
+        exactMatches++;
+      }
+    }
+
+    // If no exact matches, try fuzzy matching for individual words
+    if (translationCount === 0) {
+      words.forEach(word => {
+        const cleanWord = word.replace(/[^\w]/g, '');
+        for (const translation of allTranslations) {
+          const source = direction === 'corporate-to-honest' ? translation.corporate : translation.honest;
+          const target = direction === 'corporate-to-honest' ? translation.honest : translation.corporate;
+          
+          if (!source || !target) continue;
+          
+          if (source.toLowerCase().includes(cleanWord.toLowerCase()) && cleanWord.length > 3) {
+            const wordRegex = new RegExp(`\\b${this.escapeRegex(cleanWord)}\\b`, 'gi');
+            result = result.replace(wordRegex, target);
+            translationCount++;
+            break;
+          }
+        }
+      });
+    }
+
+    return {
+      output: result,
+      translationCount,
+      exactMatches
+    };
   }
 }

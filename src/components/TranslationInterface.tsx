@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { ArrowLeftRight, Copy, Heart, RotateCcw, Share2, ChevronDown, Sparkles, AlertCircle } from 'lucide-react';
+import { ArrowLeftRight, Copy, Heart, RotateCcw, Share2, ChevronDown, Sparkles, AlertCircle /*, Keyboard*/ } from 'lucide-react';
 import { TranslationEngine } from '../utils/translator';
 import { StorageManager } from '../utils/storage';
 import { useClipboard } from '../hooks/useClipboard';
@@ -23,6 +23,7 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [placeholderMessage, setPlaceholderMessage] = useState('');
+  // const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   
   const translator = TranslationEngine.getInstance();
   const storage = StorageManager.getInstance();
@@ -34,8 +35,21 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
   // Helper: should save to history
   const shouldSaveToHistory = (text: string, triggeredBySuggestion = false) => {
     if (triggeredBySuggestion) return true;
-    // Save if ends with . ! ? or user pressed Enter (handled in onKeyDown)
-    return /[.!?]$/.test(text.trim());
+    
+    const trimmed = text.trim();
+    
+    // Don't save if text is too short or empty
+    if (trimmed.length < 5) return false;
+    
+    // Only save if the sentence appears complete:
+    // 1. Ends with proper punctuation (. ! ? : ;)
+    // 2. Has at least 2 words
+    // 3. Is not just a fragment
+    const endsWithPunctuation = /[.!?:;]$/.test(trimmed);
+    const hasMultipleWords = trimmed.split(/\s+/).length >= 2;
+    const isNotJustFragment = trimmed.length >= 10;
+    
+    return endsWithPunctuation && hasMultipleWords && isNotJustFragment;
   };
 
   // Update translate to be async, add param for suggestion
@@ -76,13 +90,61 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
     }, 400); // Simulate loading
   }, [direction, translator, storage, onBullshitLevelChange]);
 
-  // Handle Enter key in textarea
-  const handleInputKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      await translate(inputText, true);
-    }
-  };
+  // Enhanced keyboard shortcuts
+  // const handleInputKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  //   // Ctrl+Enter or Cmd+Enter to translate
+  //   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+  //     e.preventDefault();
+  //     await translate(inputText, true);
+  //     return;
+  //   }
+  //   
+  //   // Ctrl+Shift+D or Cmd+Shift+D to toggle direction
+  //   if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
+  //     e.preventDefault();
+  //     handleDirectionToggle();
+  //     return;
+  //   }
+  //   
+  //   // Ctrl+Shift+C or Cmd+Shift+C to clear
+  //   if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+  //     e.preventDefault();
+  //     handleClear();
+  //     return;
+  //   }
+  //   
+  //   // Escape to clear
+  //   if (e.key === 'Escape') {
+  //     e.preventDefault();
+  //     handleClear();
+  //     return;
+  //   }
+  //   
+  //   // Regular Enter for new line (default behavior)
+  //   // No need to prevent default for regular Enter
+  // };
+  
+  // Global keyboard shortcuts
+  // useEffect(() => {
+  //   const handleGlobalKeyDown = (e: KeyboardEvent) => {
+  //     // Only handle global shortcuts when not focused on input elements
+  //     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+  //       return;
+  //     }
+  //     
+  //     // Ctrl+/ or Cmd+/ to focus input
+  //     if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+  //       e.preventDefault();
+  //       const textarea = document.querySelector('textarea[placeholder*="corporate"]') as HTMLTextAreaElement;
+  //       if (textarea) {
+  //         textarea.focus();
+  //       }
+  //     }
+  //   };
+  //   
+  //   document.addEventListener('keydown', handleGlobalKeyDown);
+  //   return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  // }, []);}]}}}
 
   // Update translate on input change
   useEffect(() => {
@@ -97,6 +159,20 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
       setIsFavorite(await storage.isFavorite(inputText, direction));
     })();
   }, [inputText, direction, storage]);
+
+  // Cleanup incomplete translations on component mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await storage.cleanupAllIncompleteData();
+        if (result.historyRemoved > 0 || result.favoritesRemoved > 0) {
+          console.log(`Cleaned up incomplete data: ${result.historyRemoved} history items, ${result.favoritesRemoved} favorites`);
+        }
+      } catch (error) {
+        console.error('Error cleaning up incomplete data:', error);
+      }
+    })();
+  }, []); // Run only once on mount
 
   const handleDirectionToggle = () => {
     const newDirection: TranslationDirection = 
@@ -186,13 +262,22 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
           <h2 className="text-lg font-semibold text-gray-800">
             {direction === 'corporate-to-honest' ? 'Corporate → Honest' : 'Honest → Corporate'}
           </h2>
-          <button
-            onClick={handleDirectionToggle}
-            className="flex items-center space-x-2 px-4 py-2 bg-corporate-600 text-white rounded-lg hover:bg-corporate-700 transition-colors duration-200"
-          >
-            <ArrowLeftRight className="w-4 h-4" />
-            <span>Switch</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            {/* <button
+              onClick={() => setShowKeyboardShortcuts(true)}
+              className="flex items-center space-x-1 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              title="Keyboard Shortcuts"
+            >
+              <Keyboard className="w-4 h-4" />
+            </button> */}
+            <button
+              onClick={handleDirectionToggle}
+              className="flex items-center space-x-2 px-4 py-2 bg-corporate-600 text-white rounded-lg hover:bg-corporate-700 transition-colors duration-200"
+            >
+              <ArrowLeftRight className="w-4 h-4" />
+              <span>Switch</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -206,7 +291,7 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
           <textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={handleInputKeyDown}
+            // onKeyDown={handleInputKeyDown}
             placeholder={getPlaceholderText()}
             className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-corporate-500 focus:border-transparent resize-none transition-all duration-200"
           />
@@ -337,6 +422,57 @@ const TranslationInterface: React.FC<TranslationInterfaceProps> = ({ onBullshitL
           {translator.getRandomWittyMessage('error')}
         </div>
       )}
+      
+      {/* Keyboard Shortcuts Modal */}
+      {/* {showKeyboardShortcuts && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800 flex items-center space-x-2">
+                <Keyboard className="w-5 h-5" />
+                <span>Keyboard Shortcuts</span>
+              </h3>
+              <button
+                onClick={() => setShowKeyboardShortcuts(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Translate</span>
+                  <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Ctrl+Enter</kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Toggle Direction</span>
+                  <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Ctrl+Shift+D</kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Clear Text</span>
+                  <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Ctrl+Shift+C</kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Clear Text</span>
+                  <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Escape</kbd>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Focus Input</span>
+                  <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-mono">Ctrl+/</kbd>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-gray-200">
+                <p className="text-xs text-gray-500 italic">
+                  Use <kbd className="px-1 bg-gray-100 rounded text-xs">Cmd</kbd> instead of <kbd className="px-1 bg-gray-100 rounded text-xs">Ctrl</kbd> on Mac
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )} */}
     </div>
   );
 };

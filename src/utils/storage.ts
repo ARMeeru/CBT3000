@@ -40,6 +40,40 @@ export class StorageManager {
     await db.clear('translationHistory');
   }
 
+  // Clean up existing data that doesn't meet new criteria
+  async cleanupIncompleteTranslations(): Promise<number> {
+    const db = await getDB();
+    const all = await this.getTranslationHistory();
+    let removedCount = 0;
+
+    for (const translation of all) {
+      if (!this.isCompleteTranslation(translation.input)) {
+        await db.delete('translationHistory', translation.id);
+        removedCount++;
+      }
+    }
+
+    return removedCount;
+  }
+
+  // Helper function to check if a translation meets the new criteria
+  private isCompleteTranslation(text: string): boolean {
+    const trimmed = text.trim();
+    
+    // Don't save if text is too short or empty
+    if (trimmed.length < 5) return false;
+    
+    // Only save if the sentence appears complete:
+    // 1. Ends with proper punctuation (. ! ? : ;)
+    // 2. Has at least 2 words
+    // 3. Is not just a fragment
+    const endsWithPunctuation = /[.!?:;]$/.test(trimmed);
+    const hasMultipleWords = trimmed.split(/\s+/).length >= 2;
+    const isNotJustFragment = trimmed.length >= 10;
+    
+    return endsWithPunctuation && hasMultipleWords && isNotJustFragment;
+  }
+
   // Favorites
   async saveFavorite(translation: Omit<TranslationHistory, 'id'>): Promise<void> {
     const db = await getDB();
@@ -64,6 +98,30 @@ export class StorageManager {
   async removeFavorite(id: string): Promise<void> {
     const db = await getDB();
     await db.delete('favorites', id);
+  }
+
+  // Clean up favorites that don't meet new criteria
+  async cleanupIncompleteFavorites(): Promise<number> {
+    const db = await getDB();
+    const all = await this.getFavorites();
+    let removedCount = 0;
+
+    for (const favorite of all) {
+      if (!this.isCompleteTranslation(favorite.input)) {
+        await db.delete('favorites', favorite.id);
+        removedCount++;
+      }
+    }
+
+    return removedCount;
+  }
+
+  // Clean up all incomplete data
+  async cleanupAllIncompleteData(): Promise<{historyRemoved: number, favoritesRemoved: number}> {
+    const historyRemoved = await this.cleanupIncompleteTranslations();
+    const favoritesRemoved = await this.cleanupIncompleteFavorites();
+    
+    return { historyRemoved, favoritesRemoved };
   }
 
   async isFavorite(input: string, direction: string): Promise<boolean> {
