@@ -1,0 +1,41 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output
+dist/
+build/
+
+# VSCode
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+
+# Logs
+*.log
+
+# IDEs
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Misc
+coverage/
+*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# idb/IndexedDB (browser storage, not files, but just in case)
+indexeddb-backup.json
